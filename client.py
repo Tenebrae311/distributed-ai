@@ -4,42 +4,12 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-# Einfaches Modell
-class Net(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc = nn.Linear(28 * 28, 10)
+from model import Net
+from engine import train, test
 
-    def forward(self, x):
-        return self.fc(x.view(-1, 28 * 28))
-
-# Trainingsfunktion
-def train(model, trainloader, epochs=1):
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.01)
-    model.train()
-    for _ in range(epochs):
-        for data, target in trainloader:
-            optimizer.zero_grad()
-            loss = criterion(model(data), target)
-            loss.backward()
-            optimizer.step()
-
-# Testfunktion
-def test(model, testloader):
-    model.eval()
-    correct, loss = 0, 0
-    criterion = nn.CrossEntropyLoss()
-    with torch.no_grad():
-        for data, target in testloader:
-            output = model(data)
-            loss += criterion(output, target).item()
-            correct += (output.argmax(1) == target).sum().item()
-    return loss / len(testloader), correct / len(testloader.dataset)
-
-# Flower Client
+# flower client
 class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, model, trainloader, testloader):
+    def __init__(self, model: nn.Module, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader):
         self.model = model
         self.trainloader = trainloader
         self.testloader = testloader
@@ -61,17 +31,17 @@ class FlowerClient(fl.client.NumPyClient):
         loss, accuracy = test(self.model, self.testloader)
         return float(loss), len(self.testloader.dataset), {"accuracy": float(accuracy)}
 
-# Client starten
 def main():
+    # load dataset
     transform = transforms.Compose([transforms.ToTensor()])
     trainset = datasets.MNIST(".", train=True, download=True, transform=transform)
     testset = datasets.MNIST(".", train=False, download=True, transform=transform)
-
+    # createe data loaders
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=32)
     testloader = torch.utils.data.DataLoader(testset, batch_size=32)
-
+    # create model
     model = Net()
-
+    # start client
     fl.client.start_numpy_client(
         server_address="localhost:8080",
         client=FlowerClient(model, trainloader, testloader),
