@@ -133,7 +133,7 @@ for dataset_index in range(NUM_DATASAETS):
 
         # --- Label (Zielvariable) ---
         # Stark unausgeglichen
-        label = random.choices([0, 1], weights=[0.97, 0.03], k=1)[0]
+        label = random.choices([0, 1], weights=[0.97, 0.03], k=1)[0]  # TODO: Das Label sollte zu 10% vorhanden sein
 
         # --- Datensatz zusammenstellen ---
         row = {
