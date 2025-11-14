@@ -4,8 +4,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from model import Net
-from engine import train, test
+from pipeline.model import Net
+from pipeline.engine import train, test
 
 # flower client
 class FlowerClient(fl.client.NumPyClient):

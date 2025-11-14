@@ -16,13 +16,13 @@ def train(model: nn.Module, trainloader: torch.utils.data.DataLoader, epochs: in
             optimizer.step()
 
 # test function
-def test(model: nn.Module, testloader: torch.utils.data.DataLoader) -> tuple[float, float]:
+def val(model: nn.Module, valloader: torch.utils.data.DataLoader) -> tuple[float, float]:
     model.eval()
     correct, loss = 0, 0
     criterion = nn.CrossEntropyLoss()
     with torch.no_grad():
-        for data, target in testloader:
+        for data, target in valloader:
             output: torch.Tensor = model(data)
             loss += criterion(output, target).item()
             correct += (output.argmax(1) == target).sum().item()
-    return loss / len(testloader), correct / len(testloader.dataset)
+    return loss / len(valloader), correct / len(valloader.dataset)
