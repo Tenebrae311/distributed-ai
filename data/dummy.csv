@@ -1,3 +1,18 @@
-age, income, country, gender, label
-34, 52000, 1, 0, 2
-19, 18000, 2, 1, 0
+age,income,country,gender,label
+34,52000,"german","male",1
+19,18000,"french","female",0
+45,75000,"italian","female",1
+23,22000,"german","male",0
+56,88000,"french","male",1
+29,30000,"italian","female",0
+40,60000,"german","male",1
+30,40000,"french","female",0
+50,82000,"italian","male",1
+27,28000,"german","female",0
+38,58000,"french","male",1
+22,20000,"italian","female",0
+41,61000,"german","male",1
+26,27000,"french","female",0
+55,87000,"portuguese","male",1
+31,35000,"italian","female",0
+47,77000,"portuguese","male",1
