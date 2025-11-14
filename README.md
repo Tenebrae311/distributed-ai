@@ -2,7 +2,7 @@
 
 ## Setup
 
-To install/manage the dependencies, we use uv, which can be installed using the instructions on [this]("https://docs.astral.sh/uv/getting-started/installation/") website.
+To install/manage the dependencies, we use uv, which can be installed using the instructions on [this](https://docs.astral.sh/uv/getting-started/installation/) website.
 
 After that, you can simply run `uv sync` to install all the current dependencies.
 
