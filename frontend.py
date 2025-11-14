@@ -23,23 +23,142 @@ def dashboard():
 def form():
     with st.form('tax-form'):
         st.text('Example Tax Form')
-        st.checkbox('Checkbox input', key='checkbox_input')
-        st.text_input('Text input', key='text_input')
-        st.number_input(
-            'Number input',
-            placeholder='Enter a number here...',
-            key='number_input',
+
+        numeric_inputs_data = (
+            (
+                'Summe_Einkuenfte_Brutto',
+                'Summe der Einkünfte (Brutto)',
+                85017.15,
+            ),
+            ('Summe_Werbungskosten', 'Summe Werbungskosten', 6037.81),
+            ('Summe_Sonderausgaben', 'Summe Sonderausgaben', 8917.49),
+            (
+                'Summe_Ausserg_Belastungen',
+                'Summe außergewöhnliche Belastungen',
+                0,
+            ),
+            (
+                'Erstattungsbetrag_Erwartet',
+                'Erwarteter Erstattungsbetrag',
+                3395.46,
+            ),
+            (
+                'Anzahl der Homeoffice Tage',
+                'Anzahl_Tage_Homeoffice',
+                120,
+            ),
+            (
+                'Entfernung zwischen der Wohnung und der Arbeit',
+                'Entfernung_Wohnung_Arbeit',
+                0,
+            ),
+            ('Kosten der Arbeitsmittel', 'Kosten_Arbeitsmittel', 1214.67),
+            ('Kosten der Bewirtung', 'Kosten_Bewirtung', 2219.01),
+            ('Kosten der Geschäftsreisen', 'Kosten_Geschaeftsreisen', 6566.63),
+            ('Alter', 'Alter', 60),
+            ('Anzahl der Kinder', 'Anzahl_Kinder', 0),
         )
-        st.selectbox(
-            'Dropdown',
-            (1, 2, 3),
-            key='dropdown_input',
+        numeric_inputs = [
+            st.number_input(n, key=k, value=v)
+            for n,k,v in numeric_inputs_data
+        ]
+
+        categoric_inputs_data = (
+            (
+                'Familienstand',
+                'Familienstand',
+                ('ledig', 'verheiratet', 'geschieden'),
+                2,
+            ),
+            ('Steuerklasse', 'Steuerklasse', (0, 1, 2, 3, 4), 2),
+            (
+                'Bundesland',
+                'Bundesland',
+                (
+                    'Baden-Württemberg',
+                    'Bayern',
+                    'Berlin',
+                    'Brandenburg',
+                    'Bremen',
+                    'Hamburg',
+                    'Hessen',
+                    'Mecklenburg-Vorpommern',
+                    'Niedersachsen',
+                    'Nordrhein-Westfalen',
+                    'Rheinland-Pfalz',
+                    'Saarland',
+                    'Sachsen',
+                    'Sachsen-Anhalt',
+                    'Schleswig-Holstein',
+                    'Thüringen',
+                ),
+                9,
+            ),
+            (
+                'Religionszugehörigkeit',
+                'Religionszugehörigkeit',
+                (
+                    'römisch-katholisch',
+                    'evangelisch',
+                    'konfessionslos',
+                    'muslimisch',
+                    'andere',
+                    'keine Angabe',
+                ),
+                3,
+            ),
+            (
+                'Einkunftsart',
+                'Einkunftsart',
+                (
+                    'Nichtselbständige Arbeit',
+                    'Selbständige Arbeit',
+                    'Gewerbebetrieb',
+                    'Kapitalvermögen',
+                    'Vermietung und Verpachtung',
+                    'Sonstige Einkünfte (z.B. Rente)',
+                ),
+                2,
+            ),
+            (
+                'Branche (Selbstständig)',
+                'Branche_Selbststaendig',
+                (
+                    'IT-Dienstleistungen',
+                    'Handwerk',
+                    'Beratung',
+                    'Einzelhandel',
+                    'Gastronomie',
+                    'Gesundheitswesen',
+                    'Produktion',
+                    'Sonstige',
+                ),
+                6,
+            ),
         )
-        submitted = st.form_submit_button("Submit")
+        categorical_inputs = [
+            st.selectbox(n, d, key=k, index=i)
+            for n,k,d,i in categoric_inputs_data
+        ]
+
+        st.pills(
+            'Anlagen',
+            ('N', 'V', 'KAP', 'Kind', 'G'),
+            selection_mode='multi',
+            default=['G'],
+            key='anlagen',
+        )
+
+        st.divider()
+        submitted = st.form_submit_button(
+            "Submit",
+            use_container_width=True,
+        )
         if submitted:
-            st.switch_page(dashboard_page)
+            st.markdown(':orange-badge[⚠️ Needs review]')
 
 
 dashboard_page = st.Page(dashboard, title='Dashboard')
+# navigation = st.navigation([st.Page(form), st.Page(dashboard)])
 navigation = st.navigation([form, dashboard])
 navigation.run()

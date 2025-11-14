@@ -1,0 +1,10 @@
+[theme]
+primaryColor = "#ca0013"
+backgroundColor = "#eeebe3"
+textColor = "#545454"
+dataframeHeaderBackgroundColor = "#ca0013"
+
+[theme.sidebar]
+primaryColor = "#eeebe3"
+backgroundColor = "#ca0013"
+textColor = "#ffffff"
