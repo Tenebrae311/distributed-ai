@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from pipeline.model import Net
+from pipeline.model import FTTransformer
 from pipeline.engine import train, test
 
 # flower client
@@ -40,7 +40,7 @@ def main():
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=32)
     testloader = torch.utils.data.DataLoader(testset, batch_size=32)
     # create model
-    model = Net()
+    model = FTTransformer()
     # start client
     fl.client.start_numpy_client(
         server_address="localhost:8080",
