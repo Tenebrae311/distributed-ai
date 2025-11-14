@@ -1,11 +1,12 @@
 [project]
-name = "distributed-ai"
+name = "civiclink"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "flwr>=1.23.0",
+    "ipykernel>=7.1.0",
     "torch>=2.9.0",
     "torchvision>=0.24.0",
 ]
