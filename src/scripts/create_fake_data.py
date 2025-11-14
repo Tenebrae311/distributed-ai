@@ -8,7 +8,7 @@ import random
 fake = Faker('de_DE')
 
 # Anzahl der zu generierenden Datensätze
-NUM_ROWS = 2000
+NUM_ROWS = 6000
 
 # Vordefinierte Listen für kategoriale Daten
 FAMILIENSTAND_OPTIONEN = ['ledig', 'verheiratet', 'geschieden', 'verwitwet']
@@ -54,7 +54,7 @@ print(f"Generiere {NUM_ROWS} Datensätze...")
 # Liste zum Speichern der einzelnen Datensätze (als Dictionaries)
 data = []
 
-NUM_DATASAETS = 3
+NUM_DATASAETS = 1
 for dataset_index in range(NUM_DATASAETS):
     for _ in range(NUM_ROWS):
 
