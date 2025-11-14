@@ -157,7 +157,7 @@ for dataset_index in range(NUM_DATASAETS):
             'Bundesland': bundesland,
             'Religionszugehörigkeit': religionszugehoerigkeit,
             'Einkunftsart': einkunftsart,
-            'Branche_Selbstaendig': branche_selbstaendig,
+            'Branche_Selbststaendig': branche_selbstaendig,
             'Hat_Anlage_N': hat_anlage_n,
             'Hat_Anlage_V': hat_anlage_v,
             'Hat_Anlage_KAP': hat_anlage_kap,
