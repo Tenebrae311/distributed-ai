@@ -30,3 +30,18 @@ ssh team18@129.212.178.168 -p 32605 'ls -l'
 # Example for running on GPU
 ./submit-job.sh "flwr run . cluster-gpu" --gpu
 ```
+
+### Executing our Project
+First connect to the server using ssh as above.
+Then `cd` into the project directory. The project directory had to be renamed to `coldstart` for the server to work.
+Pull the newest changes:
+(If not already on the main branch)
+```bash
+git checkout main
+```
+```bash
+git pull
+```
+It should work without passing any credentials because I added the personal access token.
+
+Then you can run the project using the `submit-job.sh` script as shown above.
