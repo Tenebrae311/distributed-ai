@@ -10,42 +10,25 @@ class TabularDataset(Dataset):
         numeric_cols: list[str],
         categorical_cols: list[str],
         target_col: str,
-        cat_mappings: dict[str, dict] | None = None,
+        cat_mappings: dict[str, dict],
     ):
         """
-        Wenn cat_mappings=None: neue Mappings erzeugen (nur beim Training!)
-        Wenn cat_mappings!=None: dieselben Mappings verwenden (Validation!)
+        Erwartet bereits erstellte cat_mappings.
+        Neue Kategorien → UNK (Index 0)
         """
 
         self.numeric_cols = numeric_cols
         self.categorical_cols = categorical_cols
+        self.cat_mappings = cat_mappings
 
         # Numerische Features
         self.x_num = torch.tensor(df[numeric_cols].values, dtype=torch.float32)
 
-        # Kategorische Features immer als string
+        # Kategorische Features immer als strings
         df_cat = df[categorical_cols].astype(str).copy()
-
-        # Wenn keine Mappings gegeben → neue erzeugen
-        self.cat_mappings = {} if cat_mappings is None else cat_mappings
-
-        if cat_mappings is None:
-            # Trainings-Mappings erstellen
-            for col in categorical_cols:
-                unique_vals = sorted(df_cat[col].unique())
-                mapping = {val: idx+1 for idx, val in enumerate(unique_vals)}
-                mapping["<UNK>"] = 0
-                self.cat_mappings[col] = mapping
-        else:
-            # Validation: neue Kategorien → UNK
-            for col in categorical_cols:
-                df_cat[col] = df_cat[col].apply(
-                    lambda x: x if x in self.cat_mappings[col] else "<UNK>"
-                )
 
         # Kategorien in Indices wandeln
         df_cat = df_cat.apply(lambda col: col.map(self.cat_mappings[col.name]))
-
         self.x_cat = torch.tensor(df_cat.values, dtype=torch.long)
 
         # Target
@@ -74,22 +57,27 @@ def create_train_val_datasets(
         df = df.sample(frac=1.0, random_state=seed).reset_index(drop=True)
 
     val_size = int(len(df) * val_ratio)
-
     df_val = df.iloc[:val_size]
     df_train = df.iloc[val_size:]
 
-    # Train-Set erzeugt Mappings
+    # ------------------------------------------------------------
+    # ZENTRAL: Kategorische Mappings erzeugen (nur einmal!)
+    # ------------------------------------------------------------
+    cat_mappings = {}
+    for col in categorical_cols:
+        unique_vals = sorted(df_train[col].astype(str).unique())
+        mapping = {val: idx for idx, val in enumerate(unique_vals)}
+        cat_mappings[col] = mapping
+
+    # ------------------------------------------------------------
+    # Datasets erzeugen — beide nutzen die Mappings!
+    # ------------------------------------------------------------
     train_set = TabularDataset(
-        df_train, numeric_cols, categorical_cols, target_col, cat_mappings=None
+        df_train, numeric_cols, categorical_cols, target_col, cat_mappings
     )
 
-    # Validation-Set nutzt dieselben Mappings → Konsistenz!
     val_set = TabularDataset(
-        df_val,
-        numeric_cols,
-        categorical_cols,
-        target_col,
-        cat_mappings=train_set.cat_mappings,
+        df_val, numeric_cols, categorical_cols, target_col, cat_mappings
     )
 
-    return train_set, val_set
+    return train_set, val_set, cat_mappings
