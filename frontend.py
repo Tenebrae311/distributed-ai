@@ -64,7 +64,7 @@ def show_details():
         ---
         ### Begründung
     ''')
-    fig = get_shap_fig(X_test.iloc[selected:selected+1], model)
+    fig, top_columns = get_shap_fig(X_test.iloc[selected:selected+1], model)
     st.pyplot(fig)
 
     st.markdown('''
@@ -72,8 +72,11 @@ def show_details():
         ### Daten
     ''')
     pairs = {}
-    for col in columns_to_display:
-        pairs[col] = details[col]
+    for col in top_columns:
+        if col in details:
+            pairs[col] = details[col]
+        else:
+            pairs[col] = row[col]
     st.table(pairs, border='horizontal')
 
 

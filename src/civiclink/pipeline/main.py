@@ -64,4 +64,4 @@ def get_shap_fig(test_samples, bst):
 
     fig = plt.gcf()
 
-    return fig
+    return fig, X_top.columns
