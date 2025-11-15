@@ -2,13 +2,13 @@
 __pycache__/
 *.py[codz]
 *$py.class
+.idea/
 
 # C extensions
 *.so
 
 *.pt
 *.png
-
 # Distribution / packaging
 .Python
 build/
