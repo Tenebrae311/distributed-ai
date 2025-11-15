@@ -5,10 +5,10 @@ from torch.utils.data import WeightedRandomSampler, DataLoader
 
 from pandas import read_csv
 
-from src.pipeline.engine import train, val
-from src.pipeline.dataset import create_train_val_datasets, TabularDataset
-from src.pipeline.model import FTTransformer
-from src.pipeline.early_stopping import EarlyStopping
+from src.FTTransformer.pipeline.engine import train, val
+from src.FTTransformer.pipeline.dataset import create_train_val_datasets, TabularDataset
+from src.FTTransformer.pipeline.model import FTTransformer
+from src.FTTransformer.pipeline.early_stopping import EarlyStopping
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 
