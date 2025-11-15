@@ -14,10 +14,20 @@ test_data = pd.DataFrame(
 )
 
 
+def show_details():
+    pass
+
+
 def dashboard():
-    st.text('Data')
-    st.data_editor(test_data)
-    st.line_chart(test_data, x='col1', y='col2')
+    st.markdown('# Dashboard')
+    selected = st.dataframe(
+        test_data,
+        selection_mode='single-row',
+        on_select=show_details,
+    )['selection']['rows']
+    if selected:
+        selected = selected[0]
+
 
 
 def form():
@@ -155,7 +165,15 @@ def form():
             use_container_width=True,
         )
         if submitted:
-            st.markdown(':orange-badge[⚠️ Needs review]')
+            st.html('''
+                <div class="stMarkdown" data-testid="stMarkdown" style="display: flex; justify-content: center;">
+                    <div data-testid="stMarkdownContainer" class="st-emotion-cache-1nux2oy et2rgd20">
+                        <p>
+                            <span class="stMarkdownBadge" style="background-color: rgba(255, 164, 33, 0.1); color: rgb(226, 102, 12); font-size: 0.875rem;">⚠️ Needs review</span>
+                        </p>
+                    </div>
+                </div>
+            ''')
 
 
 dashboard_page = st.Page(dashboard, title='Dashboard')
