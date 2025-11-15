@@ -61,6 +61,20 @@ def create_train_val_datasets(
     df_train = df.iloc[val_size:]
 
     # ------------------------------------------------------------
+    # Standardize numeric features using statistics from the training split
+    # ------------------------------------------------------------
+    if len(numeric_cols) > 0:
+        # compute mean/std on train
+        means = df_train[numeric_cols].mean()
+        stds = df_train[numeric_cols].std().replace(0, 1.0)
+
+        # apply standardization
+        df_train = df_train.copy()
+        df_val = df_val.copy()
+        df_train[numeric_cols] = (df_train[numeric_cols] - means) / stds
+        df_val[numeric_cols] = (df_val[numeric_cols] - means) / stds
+
+    # ------------------------------------------------------------
     # ZENTRAL: Kategorische Mappings erzeugen (nur einmal!)
     # ------------------------------------------------------------
     cat_mappings = {}
@@ -80,4 +94,4 @@ def create_train_val_datasets(
         df_val, numeric_cols, categorical_cols, target_col, cat_mappings
     )
 
-    return train_set, val_set, cat_mappings
+    return train_set, val_set

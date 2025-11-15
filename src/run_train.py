@@ -1,113 +1,232 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from pipeline.engine import train, val
-from pipeline.dataset import create_train_val_datasets
-from pipeline.model import FTTransformer
+from torch.utils.data import WeightedRandomSampler, DataLoader
+
 from pandas import read_csv
+
+from pipeline.engine import train, val
+from pipeline.dataset import create_train_val_datasets, TabularDataset
+from pipeline.model import FTTransformer
 from pipeline.early_stopping import EarlyStopping
 
-# raw data information
-#table_path = "data/fraud-detection.csv"
-#numeric_cols = ["amount", "oldbalanceOrg", "newbalanceOrig", "oldbalanceDest", "newbalanceDest"]
-#categorical_cols = ["step", "type", "nameOrig", "nameDest"]
-#label_col = "isFraud"
 
-#table_path = "data/dummy.csv"
-#numeric_cols = ["age", "income"]  
-#categorical_cols = ["country", "gender"]
-#label_col = "label"
+class TrainingPipeline:
+    def __init__(
+        self,
+        table_path: str,
+        numeric_cols: list[str],
+        categorical_cols: list[str],
+        label_col: str,
+        batch_size: int = 16,
+        lr: float = 1e-3,
+        weight_decay: float = 1e-5,
+        val_ratio: float = 0.2,
+        use_sampler: bool = True,
+        max_pos_weight: float = 10.0,
+    ):
+        self.table_path = table_path
+        self.numeric_cols = numeric_cols
+        self.categorical_cols = categorical_cols
+        self.label_col = label_col
 
-table_path = "data/fake_steuerdaten_labels_not_random.csv"
-numeric_cols = [
-    "Summe_Einkuenfte_Brutto", 
-    "Summe_Werbungskosten", 
-    "Summe_Sonderausgaben", 
-    "Summe_Ausserg_Belastungen", 
-    "Erstattungsbetrag_Erwartet",
-    "Anzahl_Tage_Homeoffice",
-    "Entfernung_Wohnung_Arbeit",
-    "Kosten_Arbeitsmittel",
-    "Kosten_Bewirtung",
-    "Kosten_Geschaeftsreisen",
-    "Alter",
-    "Anzahl_Kinder",
-    "Veraenderung_Einkommen_Vj_Prozent",
-    "Veraenderung_Werbungskosten_Vj_Prozent",
-    "Veraenderung_Spenden_Vj_Prozent",
-    "Differenz_Einkommen_Lohnbescheid",
-    "Differenz_Kapitalertraege_Bank",
-    "Differenz_Rente_Meldung",
-    "Ratio_Werbungskosten_zu_Einkommen",
-    "Ratio_Spenden_zu_Einkommen",
-    "Ratio_Krankheitskosten_zu_Einkommen",
-    "Ratio_Gewinn_zu_Umsatz",
-    "Abweichung_Werbungskosten_von_Berufsgruppe",
-    "Abweichung_Gewinnmarge_von_Branche"
-]
-categorical_cols = [
-    "Familienstand",
-    "Steuerklasse",
-    "Bundesland",
-    "Religionszugehörigkeit",
-    "Einkunftsart",
-    "Branche_Selbststaendig",
-    "Hat_Anlage_N",
-    "Hat_Anlage_V",
-    "Hat_Anlage_KAP",
-    "Hat_Anlage_Kind",
-    "Hat_Anlage_G"
-]
-label_col = "Label"
+        self.batch_size = batch_size
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.val_ratio = val_ratio
+        self.use_sampler = use_sampler
+        self.max_pos_weight = max_pos_weight
 
-df = read_csv(table_path, sep=";")
-# create datasets
-train_set, val_set = create_train_val_datasets(
-    df,
-    numeric_cols=numeric_cols,
-    categorical_cols=categorical_cols,
-    target_col=label_col,
-    val_ratio=0.2
-)
-# dataloader
-train_loader = torch.utils.data.DataLoader(train_set, batch_size=16, shuffle=True)
-val_loader = torch.utils.data.DataLoader(val_set, batch_size=16, shuffle=False)
-# model
-model = FTTransformer(
-    num_numeric=len(numeric_cols),
-    cat_cardinalities=train_set.get_cat_cardinalities()
-)
-# training tools
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
-criterion = nn.BCEWithLogitsLoss()
+        # device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer,
-    mode='min', 
-    factor=0.5, 
-    patience=10,
-    min_lr=1e-6
-)
+        # will be filled during pipeline steps
+        self.train_set, self.val_set = self.load_data()
+        self.train_loader, self.val_loader = self.prepare_dataloaders()
+        self.model, self.optimizer = self.build_model()
+        self.criterion = self.compute_class_weights()
+        self.scheduler, self.early_stopper = self.setup_training_controls()
 
-num_epochs = 200
-early_stopper = EarlyStopping(
-    patience=20,         # Anzahl Epochen ohne Verbesserung
-    min_delta=0.0,       # Mindestverbesserung im Loss
-    save_path="best_ft_transformer.pt"
-)
 
-for epoch in range(num_epochs):
-    train_loss = train(model, train_loader, optimizer, criterion)
-    val_loss, roc_auc, precision = val(model, val_loader)
+    # --------------------------------------------------------------
+    # 1. Load and split the data
+    # --------------------------------------------------------------
+    def load_data(self) -> tuple[TabularDataset, TabularDataset]:
+        df = read_csv(self.table_path, sep=";")
+        return create_train_val_datasets(
+            df,
+            numeric_cols=self.numeric_cols,
+            categorical_cols=self.categorical_cols,
+            target_col=self.label_col,
+            val_ratio=self.val_ratio,
+        )
 
-    # Learning rate scheduling
-    scheduler.step(val_loss)
-    current_lr = optimizer.param_groups[0]['lr']
 
-    print(f"Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, "
-          f"ROC AUC: {roc_auc:.4f}, Precision: {precision:.4f}, LR: {current_lr:.6f}")
-    
-    early_stopper.step(val_loss, model)
-    if early_stopper.early_stop:
-        print("Early stopping triggered. Training stopped.")
-        break
+    # --------------------------------------------------------------
+    # 2. Prepare dataloaders (with optional sampler)
+    # --------------------------------------------------------------
+    def prepare_dataloaders(self) -> tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+        if self.use_sampler:
+            labels = self.train_set.y.cpu().numpy().astype(int)
+            class_sample_count = [(labels == t).sum() for t in sorted(set(labels))]
+            class_weights = {i: 1.0 / max(1, c) for i, c in enumerate(class_sample_count)}
+            sample_weights = [class_weights[int(l)] for l in labels]
+
+            sampler = WeightedRandomSampler(
+                sample_weights,
+                num_samples=len(sample_weights),
+                replacement=True,
+            )
+
+            print(f"Using WeightedRandomSampler: class_counts={class_sample_count}")
+
+            train_loader = DataLoader(self.train_set, batch_size=self.batch_size, sampler=sampler)
+        else:
+            train_loader = DataLoader(self.train_set, batch_size=self.batch_size, shuffle=True)
+
+        val_loader = DataLoader(self.val_set, batch_size=self.batch_size, shuffle=False)
+        return train_loader, val_loader
+
+
+    # --------------------------------------------------------------
+    # 3. Model creation
+    # --------------------------------------------------------------
+    def build_model(self) -> tuple[nn.Module, optim.Optimizer]:
+        model = FTTransformer(
+            num_numeric=len(self.numeric_cols),
+            cat_cardinalities=self.train_set.get_cat_cardinalities(),
+        ).to(self.device)
+
+        optimizer = optim.Adam(
+            model.parameters(),
+            lr=self.lr,
+            weight_decay=self.weight_decay,
+        )
+        return model, optimizer
+
+
+    # --------------------------------------------------------------
+    # 4. Compute pos_weight for BCEWithLogitsLoss
+    # --------------------------------------------------------------
+    def compute_class_weights(self) -> nn.Module:
+        labels = self.train_set.y
+        num_pos = int((labels == 1).sum().item())
+        num_neg = len(self.train_set) - num_pos
+
+        if num_pos > 0:
+            pos_weight_val = float(num_neg / num_pos)
+        else:
+            pos_weight_val = 1.0
+
+        # cap pos_weight
+        pos_weight_val = min(pos_weight_val, self.max_pos_weight)
+
+        print(f"Computed pos_weight: {pos_weight_val:.3f} (pos={num_pos}, neg={num_neg})")
+
+        return nn.BCEWithLogitsLoss(
+            pos_weight=torch.tensor(pos_weight_val, dtype=torch.float32, device=self.device)
+        )
+
+
+    # --------------------------------------------------------------
+    # 5. LR scheduler + early stopping
+    # --------------------------------------------------------------
+    def setup_training_controls(self) -> tuple[optim.lr_scheduler.ReduceLROnPlateau, EarlyStopping]:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer,
+            mode="min",
+            factor=0.5,
+            patience=10,
+            min_lr=1e-6,
+        )
+
+        early_stopper = EarlyStopping(
+            patience=30,
+            min_delta=0.0,
+            save_path="best_ft_transformer.pt",
+        )
+        return scheduler, early_stopper
+
+
+    # --------------------------------------------------------------
+    # 6. Execute training loop
+    # --------------------------------------------------------------
+    def run(self, num_epochs: int = 300):
+        for epoch in range(num_epochs):
+            train_loss = train(
+                self.model, self.train_loader, self.optimizer, self.criterion, self.device
+            )
+            val_loss, roc_auc, precision, mean_prob = val(
+                self.model, self.val_loader, self.device, self.criterion
+            )
+
+            self.scheduler.step(val_loss)
+            current_lr = self.optimizer.param_groups[0]["lr"]
+
+            print(
+                f"Epoch {epoch+1}, "
+                f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, "
+                f"ROC AUC: {roc_auc:.4f}, Precision: {precision:.4f}, "
+                f"MeanProb: {mean_prob:.4f}, LR: {current_lr:.6f}"
+            )
+
+            self.early_stopper.step(val_loss, self.model)
+            if self.early_stopper.early_stop:
+                print("Early stopping triggered.")
+                break
+
+def main():
+    table_path = "data/fake_steuerdaten_labels_not_random.csv"
+    numeric_cols = [
+        "Summe_Einkuenfte_Brutto", 
+        "Summe_Werbungskosten", 
+        "Summe_Sonderausgaben", 
+        "Summe_Ausserg_Belastungen", 
+        "Erstattungsbetrag_Erwartet",
+        "Anzahl_Tage_Homeoffice",
+        "Entfernung_Wohnung_Arbeit",
+        "Kosten_Arbeitsmittel",
+        "Kosten_Bewirtung",
+        "Kosten_Geschaeftsreisen",
+        "Alter",
+        "Anzahl_Kinder",
+        "Veraenderung_Einkommen_Vj_Prozent",
+        "Veraenderung_Werbungskosten_Vj_Prozent",
+        "Veraenderung_Spenden_Vj_Prozent",
+        "Differenz_Einkommen_Lohnbescheid",
+        "Differenz_Kapitalertraege_Bank",
+        "Differenz_Rente_Meldung",
+        "Ratio_Werbungskosten_zu_Einkommen",
+        "Ratio_Spenden_zu_Einkommen",
+        "Ratio_Krankheitskosten_zu_Einkommen",
+        "Ratio_Gewinn_zu_Umsatz",
+        "Abweichung_Werbungskosten_von_Berufsgruppe",
+        "Abweichung_Gewinnmarge_von_Branche"
+    ]
+    categorical_cols = [
+        "Familienstand",
+        "Steuerklasse",
+        "Bundesland",
+        "Religionszugehörigkeit",
+        "Einkunftsart",
+        "Branche_Selbststaendig",
+        "Hat_Anlage_N",
+        "Hat_Anlage_V",
+        "Hat_Anlage_KAP",
+        "Hat_Anlage_Kind",
+        "Hat_Anlage_G"
+    ]
+    label_col = "Label"
+
+    pipeline = TrainingPipeline(
+        table_path=table_path,
+        numeric_cols=numeric_cols,
+        categorical_cols=categorical_cols,
+        label_col=label_col,
+        batch_size=16,
+        lr=1e-3
+    )
+    pipeline.run(num_epochs=300)
+   
+if __name__ == "__main__":
+    main()
