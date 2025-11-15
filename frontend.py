@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from numpy.random import default_rng as rng
-from civiclink.pipeline.main import load_data_train_test, train, get_shap_fig
+from civiclink.XGBoost.main import load_data_train_test, train, get_shap_fig
 
 
 columns_to_display = [
