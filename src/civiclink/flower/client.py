@@ -6,7 +6,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.run_train import TrainingPipeline
+from FTTransformer.run_train import TrainingPipeline
 
 class TaxFLClient(fl.client.NumPyClient):
     def __init__(self, table_path, numeric_cols, categorical_cols, label_col, cid, num_clients, num_local_epochs=1):
