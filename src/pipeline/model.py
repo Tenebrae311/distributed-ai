@@ -6,11 +6,11 @@ class FTTransformer(nn.Module):
         self,
         num_numeric,
         cat_cardinalities,
-        d_model=64,
-        n_heads=8,
-        n_layers=6,
-        dropout=0.1,
-        dim_feedforward=256
+        d_model=24,
+        n_heads=4,
+        n_layers=2,
+        dropout=0.2,
+        dim_feedforward=128
     ):
         super().__init__()
 
@@ -37,15 +37,15 @@ class FTTransformer(nn.Module):
             num_layers=n_layers
         )
 
-        # Head tiefer machen (gegen Underfitting)
+        # Kleinere Head, weniger Kapazität um Overfitting zu reduzieren
         self.head = nn.Sequential(
-            nn.Linear(d_model, 128),
+            nn.Linear(d_model, 64),
             nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(128, 64),
+            nn.Dropout(dropout),
+            nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(64, 1)  # 1 Output für binäre Regression (logit)
+            nn.Dropout(dropout),
+            nn.Linear(32, 1)  # 1 Output für binäre Regression (logit)
         )
 
     def forward(self, x_num: torch.Tensor, x_cat: torch.Tensor) -> torch.Tensor:

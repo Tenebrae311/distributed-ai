@@ -19,11 +19,12 @@ class TrainingPipeline:
         categorical_cols: list[str],
         label_col: str,
         batch_size: int = 16,
-        lr: float = 1e-3,
-        weight_decay: float = 1e-5,
+        lr: float = 5e-4,
+        weight_decay: float = 1e-4,
         val_ratio: float = 0.2,
         use_sampler: bool = True,
         max_pos_weight: float = 10.0,
+        grad_clip: float = 0.5,
     ):
         self.table_path = table_path
         self.numeric_cols = numeric_cols
@@ -36,6 +37,7 @@ class TrainingPipeline:
         self.val_ratio = val_ratio
         self.use_sampler = use_sampler
         self.max_pos_weight = max_pos_weight
+        self.grad_clip = grad_clip
 
         # device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -95,8 +97,8 @@ class TrainingPipeline:
         model = FTTransformer(
             num_numeric=len(self.numeric_cols),
             cat_cardinalities=self.train_set.get_cat_cardinalities(),
+            dropout=0.3,
         ).to(self.device)
-
         optimizer = optim.Adam(
             model.parameters(),
             lr=self.lr,
@@ -119,12 +121,18 @@ class TrainingPipeline:
             pos_weight_val = 1.0
 
         # cap pos_weight
-        pos_weight_val = min(pos_weight_val, self.max_pos_weight)
+        # If using a sampler we already balance batches — avoid double-weighting
+        if self.use_sampler:
+            pos_weight_capped_val = 1.0
+        else:
+            pos_weight_capped_val = float(min(pos_weight_val, self.max_pos_weight))
 
-        print(f"Computed pos_weight: {pos_weight_val:.3f} (pos={num_pos}, neg={num_neg})")
+        print(
+            f"Computed pos_weight: {pos_weight_val:.3f} (pos={num_pos}, neg={num_neg}), effective {pos_weight_capped_val:.3f}"
+        )
 
         return nn.BCEWithLogitsLoss(
-            pos_weight=torch.tensor(pos_weight_val, dtype=torch.float32, device=self.device)
+            pos_weight=torch.tensor(pos_weight_capped_val, dtype=torch.float32, device=self.device)
         )
 
 
@@ -154,7 +162,7 @@ class TrainingPipeline:
     def run(self, num_epochs: int = 300):
         for epoch in range(num_epochs):
             train_loss = train(
-                self.model, self.train_loader, self.optimizer, self.criterion, self.device
+                self.model, self.train_loader, self.optimizer, self.criterion, self.device, grad_clip=self.grad_clip
             )
             val_loss, roc_auc, precision, mean_prob = val(
                 self.model, self.val_loader, self.device, self.criterion
@@ -224,7 +232,8 @@ def main():
         categorical_cols=categorical_cols,
         label_col=label_col,
         batch_size=16,
-        lr=1e-3
+        lr=5e-4,
+        weight_decay=1e-4,
     )
     pipeline.run(num_epochs=300)
    
