@@ -24,6 +24,7 @@ def load_data_train_test():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.2, random_state= 1, shuffle = True)
     X_train: pd.DataFrame
     X_train.drop(columns="Name",inplace=True)
+    X_train.drop(columns="Datum",inplace=True)
 
     return X_train, X_test, y_train, y_test
 
@@ -36,7 +37,8 @@ def train(X_train, y_train):
 
 def get_shap_fig(test_samples, bst):
     explainer = shap.TreeExplainer(bst)
-    test_samples.drop(columns="Name",inplace=True)
+    test_samples = test_samples.drop(columns="Name")
+    test_samples = test_samples.drop(columns="Datum")
     X_pos = test_samples
     X_sample = X_pos.iloc[0:1]
     shap_values  = explainer.shap_values(X_sample)

@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "faker>=38.0.0",
     "flwr>=1.23.0",
     "flwr-datasets[vision]>=0.5.0",
     "huggingface-hub>=1.1.4",

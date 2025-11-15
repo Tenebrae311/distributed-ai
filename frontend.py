@@ -2,31 +2,48 @@ import streamlit as st
 
 import pandas as pd
 import numpy as np
+from datetime import datetime
 from numpy.random import default_rng as rng
+from civiclink.pipeline.main import load_data_train_test, train, get_shap_fig
 
 
-test_data = pd.DataFrame(
-    {
-        "col1": list(range(20)) * 3,
-        "col2": rng(0).standard_normal(60),
-        "col3": ["a"] * 20 + ["b"] * 20 + ["c"] * 20,
-    }
-)
+columns_to_display = ['Name', 'Datum', 'Erstattungsbetrag_Erwartet']
+X_train, X_test, y_train, y_test = load_data_train_test()
+model = train(X_train, y_train)
 
 
 def show_details():
-    pass
+    st.page_link(dashboard_page, icon=':material/arrow_back:')
+
+    st.markdown('# Details')
+    selected = st.session_state['selected_details']
+    row = X_test.iloc[selected]
+    details = row[columns_to_display]
+    date = datetime.strptime(details['Datum'], '%Y-%m-%d').strftime('%d.%m.%Y')
+
+    row = row.drop(columns="Name")
+    row = row.drop(columns="Datum")
+    score = model.predict_proba(row)
+    st.markdown(f'''
+        ### Name: {details['Name']}
+        ### Abgabedatum: {date}
+        ### Wahrscheinlichkeit: {score}
+    ''')
+
+    fig = get_shap_fig(X_test.iloc[selected:selected+1], model)
+    st.pyplot(fig)
 
 
 def dashboard():
     st.markdown('# Dashboard')
     selected = st.dataframe(
-        test_data,
+        X_test[columns_to_display],
         selection_mode='single-row',
-        on_select=show_details,
+        on_select='rerun',
     )['selection']['rows']
     if selected:
-        selected = selected[0]
+        st.session_state['selected_details'] = selected[0]
+        st.switch_page(details_page)
 
 
 
@@ -176,7 +193,8 @@ def form():
             ''')
 
 
+details_page = st.Page(show_details, title='Details')
 dashboard_page = st.Page(dashboard, title='Dashboard')
-# navigation = st.navigation([st.Page(form), st.Page(dashboard)])
-navigation = st.navigation([form, dashboard])
+# navigation = st.navigation([st.Page(form), dashboard_page, details_page])
+navigation = st.navigation([form, dashboard, show_details])
 navigation.run()
