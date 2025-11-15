@@ -39,8 +39,16 @@ def show_details():
         ### Name: {details['Name']}
         ### Abgabedatum: {details['Datum']}
         ### Erstattungsbetrag: {details['Betrag']}€
-        ### Betrugswahrscheinlichkeit: {score}%
     ''')
+    st.download_button(
+        'Steuererklärung',
+        data='placeholder',
+        file_name='Steuererklärung.txt',
+        icon=':material/download:',
+        mime='application/text'
+    )
+
+    st.markdown(f'### Betrugswahrscheinlichkeit: {score}%')
     if score >= 0.6 and score < 0.8:
         st.warning(
             'Mittleres Risiko für eine betrügerische Steuererklärung',
@@ -52,9 +60,21 @@ def show_details():
             icon="⚠️",
         )
 
-    st.markdown('### Begründung')
+    st.markdown('''
+        ---
+        ### Begründung
+    ''')
     fig = get_shap_fig(X_test.iloc[selected:selected+1], model)
     st.pyplot(fig)
+
+    st.markdown('''
+        ---
+        ### Daten
+    ''')
+    pairs = {}
+    for col in columns_to_display:
+        pairs[col] = details[col]
+    st.table(pairs, border='horizontal')
 
 
 def dashboard():
