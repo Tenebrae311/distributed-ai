@@ -5,16 +5,18 @@ from torch.utils.data import WeightedRandomSampler, DataLoader
 
 from pandas import read_csv
 
-from pipeline.engine import train, val
-from pipeline.dataset import create_train_val_datasets, TabularDataset
-from pipeline.model import FTTransformer
-from pipeline.early_stopping import EarlyStopping
+from src.pipeline.engine import train, val
+from src.pipeline.dataset import create_train_val_datasets, TabularDataset
+from src.pipeline.model import FTTransformer
+from src.pipeline.early_stopping import EarlyStopping
+import matplotlib.pyplot as plt
+from pandas import DataFrame
 
 
 class TrainingPipeline:
     def __init__(
         self,
-        table_path: str,
+        df: DataFrame,
         numeric_cols: list[str],
         categorical_cols: list[str],
         label_col: str,
@@ -26,7 +28,7 @@ class TrainingPipeline:
         max_pos_weight: float = 10.0,
         grad_clip: float = 0.5,
     ):
-        self.table_path = table_path
+        self.df = df
         self.numeric_cols = numeric_cols
         self.categorical_cols = categorical_cols
         self.label_col = label_col
@@ -49,14 +51,20 @@ class TrainingPipeline:
         self.criterion = self.compute_class_weights()
         self.scheduler, self.early_stopper = self.setup_training_controls()
 
+        self.history = {
+            "train_loss": [],
+            "val_loss": [],
+            "roc_auc": [],
+            "precision": [],
+        }
+
 
     # --------------------------------------------------------------
     # 1. Load and split the data
     # --------------------------------------------------------------
     def load_data(self) -> tuple[TabularDataset, TabularDataset]:
-        df = read_csv(self.table_path, sep=";")
         return create_train_val_datasets(
-            df,
+            self.df,
             numeric_cols=self.numeric_cols,
             categorical_cols=self.categorical_cols,
             target_col=self.label_col,
@@ -177,11 +185,62 @@ class TrainingPipeline:
                 f"ROC AUC: {roc_auc:.4f}, Precision: {precision:.4f}, "
                 f"MeanProb: {mean_prob:.4f}, LR: {current_lr:.6f}"
             )
+            self.history["train_loss"].append(train_loss)
+            self.history["val_loss"].append(val_loss)
+            self.history["roc_auc"].append(roc_auc)
+            self.history["precision"].append(precision)
 
             self.early_stopper.step(val_loss, self.model)
             if self.early_stopper.early_stop:
                 print("Early stopping triggered.")
                 break
+        # self.plot_training()
+
+    def plot_training(self):
+        epochs = range(1, len(self.history["train_loss"]) + 1)
+
+        # Loss plot
+        plt.figure(figsize=(10,5))
+        plt.plot(epochs, self.history["train_loss"], label="Train Loss")
+        plt.plot(epochs, self.history["val_loss"], label="Val Loss")
+        plt.xlabel("Epoch"); plt.ylabel("Loss"); plt.grid(True)
+        plt.legend(); plt.title("Training & Validation Loss")
+        plt.savefig("training_validation_loss.png")
+
+        # Metrics plot
+        plt.figure(figsize=(10,5))
+        plt.plot(epochs, self.history["roc_auc"], label="ROC AUC")
+        plt.plot(epochs, self.history["precision"], label="Precision")
+        plt.xlabel("Epoch"); plt.ylabel("Metric Value"); plt.grid(True)
+        plt.legend(); plt.title("Validation Metrics")
+        plt.savefig("validation_metrics.png")
+
+    def get_parameters(self):
+        return [p.detach().cpu().numpy() for p in self.model.parameters()]
+
+    def set_parameters(self, parameters):
+        for p, new_p in zip(self.model.parameters(), parameters):
+            tensor = torch.tensor(new_p, dtype=p.data.dtype)
+            p.data = tensor.to(self.device)
+
+    def train_one_epoch(self):
+        return train(
+            self.model,
+            self.train_loader,
+            self.optimizer,
+            self.criterion,
+            self.device,
+            grad_clip=self.grad_clip
+        )
+
+    def evaluate_once(self):
+        return val(
+            self.model,
+            self.val_loader,
+            self.device,
+            self.criterion
+        )
+
 
 def main():
     table_path = "data/fake_steuerdaten_labels_not_random.csv"
@@ -226,14 +285,16 @@ def main():
     ]
     label_col = "Label"
 
+    df = read_csv(table_path, sep=";")
+
     pipeline = TrainingPipeline(
-        table_path=table_path,
+        df=df,
         numeric_cols=numeric_cols,
         categorical_cols=categorical_cols,
         label_col=label_col,
-        batch_size=16,
+        batch_size=32,
         lr=5e-4,
-        weight_decay=1e-4,
+        weight_decay=5e-4,
     )
     pipeline.run(num_epochs=300)
    
