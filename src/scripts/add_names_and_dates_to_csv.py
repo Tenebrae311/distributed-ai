@@ -4,7 +4,7 @@ import sys
 from datetime import date
 
 # Dateiname der zu modifizierenden Datei
-FILENAME = 'fake_steuerdaten.csv'
+FILENAME = '/home/freetz/hackathon/distributed-ai/data/fake_steuerdaten_labels_not_random.csv'
 
 # Initialisiere Faker für deutsche Daten
 fake = Faker('de_DE')
