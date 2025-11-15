@@ -7,9 +7,23 @@ from numpy.random import default_rng as rng
 from civiclink.pipeline.main import load_data_train_test, train, get_shap_fig
 
 
-columns_to_display = ['Name', 'Datum', 'Erstattungsbetrag_Erwartet']
+columns_to_display = [
+    'Name',
+    'Datum',
+    'Betrag',
+    'Betrugswahrscheinlichkeit',
+]
 X_train, X_test, y_train, y_test = load_data_train_test()
 model = train(X_train, y_train)
+rows_to_predict = X_test.drop(columns=['Name', 'Datum'])
+scores = model.predict_proba(rows_to_predict)[:, 1] * 100
+X_pred = X_test.copy()
+X_pred['Betrugswahrscheinlichkeit'] = scores
+X_pred = X_pred.sort_values(by=['Betrugswahrscheinlichkeit'],
+ascending=False)
+X_pred['Betrag'] = X_pred['Erstattungsbetrag_Erwartet'].map(lambda x: f'{x}€')
+X_pred['Betrugswahrscheinlichkeit'] = X_pred['Betrugswahrscheinlichkeit'].map(lambda x: f'{x:.2f}%')
+X_pred['Datum'] = X_pred['Datum'].map(lambda x: datetime.strptime(x, '%Y-%m-%d').strftime('%d.%m.%Y'))
 
 
 def show_details():
@@ -17,19 +31,28 @@ def show_details():
 
     st.markdown('# Details')
     selected = st.session_state['selected_details']
-    row = X_test.iloc[selected]
+    row = X_pred.iloc[selected]
     details = row[columns_to_display]
-    date = datetime.strptime(details['Datum'], '%Y-%m-%d').strftime('%d.%m.%Y')
+    score = float(details['Betrugswahrscheinlichkeit'][:-2])
 
-    row = row.drop(columns="Name")
-    row = row.drop(columns="Datum")
-    score = model.predict_proba(row)
     st.markdown(f'''
         ### Name: {details['Name']}
-        ### Abgabedatum: {date}
-        ### Wahrscheinlichkeit: {score}
+        ### Abgabedatum: {details['Datum']}
+        ### Erstattungsbetrag: {details['Betrag']}€
+        ### Betrugswahrscheinlichkeit: {score}%
     ''')
+    if score >= 0.6 and score < 0.8:
+        st.warning(
+            'Mittleres Risiko für eine betrügerische Steuererklärung',
+            icon="⚠️",
+        )
+    if score >= 0.8:
+        st.error(
+            'Hohes Risiko für eine betrügerische Steuererklärung',
+            icon="⚠️",
+        )
 
+    st.markdown('### Begründung')
     fig = get_shap_fig(X_test.iloc[selected:selected+1], model)
     st.pyplot(fig)
 
@@ -37,7 +60,7 @@ def show_details():
 def dashboard():
     st.markdown('# Dashboard')
     selected = st.dataframe(
-        X_test[columns_to_display],
+        X_pred[columns_to_display],
         selection_mode='single-row',
         on_select='rerun',
     )['selection']['rows']
@@ -183,18 +206,14 @@ def form():
         )
         if submitted:
             st.html('''
-                <div class="stMarkdown" data-testid="stMarkdown" style="display: flex; justify-content: center;">
-                    <div data-testid="stMarkdownContainer" class="st-emotion-cache-1nux2oy et2rgd20">
-                        <p>
-                            <span class="stMarkdownBadge" style="background-color: rgba(255, 164, 33, 0.1); color: rgb(226, 102, 12); font-size: 0.875rem;">⚠️ Needs review</span>
-                        </p>
-                    </div>
-                </div>
+            <div class="stAlert" data-testid="stAlert"><div role="alert" data-baseweb="notification" data-testid="stAlertContainer" class="stAlertContainer st-ae st-af st-ag st-ah st-ai st-aj st-ak st-ed st-am st-an st-ao st-ap st-aq st-ar st-as st-ee st-au st-av st-aw st-ax st-ay st-ba st-b0 st-b1 st-b2 st-b3 st-b4 st-b5 st-b6 st-b7"><div class="st-b8 st-b9"><div data-testid="stAlertContentWarning" class="st-emotion-cache-14i9r8l en1c6do0" style="
+    text-align: center;
+"><div class="st-emotion-cache-1xmp9w2 e9q2xfh0"><span class="st-emotion-cache-6jwljf e1t4gh342"><span data-testid="stAlertDynamicIcon" aria-hidden="true" class="st-emotion-cache-8hkptd e1t4gh344">⚠️</span></span><div data-testid="stMarkdownContainer" class="st-emotion-cache-1nux2oy et2rgd20" style="width: calc(100% - 1.75rem);"><p>Fraud detected!</p></div></div></div></div></div></div>
             ''')
 
 
 details_page = st.Page(show_details, title='Details')
 dashboard_page = st.Page(dashboard, title='Dashboard')
 # navigation = st.navigation([st.Page(form), dashboard_page, details_page])
-navigation = st.navigation([form, dashboard, show_details])
+navigation = st.navigation([dashboard, show_details])
 navigation.run()
