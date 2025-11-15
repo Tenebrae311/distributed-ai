@@ -3,8 +3,8 @@
 ## General
 
 In the hackathon we tested two model architectures, namely a Transformer modified for tables (FTTransformer) and a XGBoost architecture to predict probabilities whether a tax form (represented as a table row) is a fraud.
-We used XGBoost for the demo to get quick and precise results for our test/demo data and generate explanations.
-We used FTTransformer, which we the trained for the same task, to apply federated learning, since a transformer architecture would be more accuracte for heterogenous data like it is in a real world scenario.
+- We used XGBoost for the demo to get quick and precise results for our test/demo data and generate explanations.
+- We used FTTransformer, which we the trained for the same task, to apply federated learning, since a transformer architecture would be more accuracte for heterogenous data like it is in a real world scenario.
 
 ## Setup
 
