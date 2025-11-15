@@ -45,3 +45,9 @@ git pull
 It should work without passing any credentials because I added the personal access token.
 
 Then you can run the project using the `submit-job.sh` script as shown above.
+
+### Starting our frontend
+In order to start the frontend, you need to execute the following command:
+```bash
+streamlit run frontend.py
+```
